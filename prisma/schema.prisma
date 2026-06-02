@@ -1,0 +1,1032 @@
+// Prisma schema for Better Auth
+// learn more: https://better-auth.com/docs/concepts/database
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+// NOTE: When using mysql or sqlserver, uncomment the //@db.Text annotations in model Account below
+// Further reading:
+// https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                              String                       @id
+  name                            String //@db.Text
+  email                           String
+  emailVerified                   Boolean                      @default(false)
+  image                           String? //@db.Text
+  phone                           String?
+  role                            String                       @default("customer")
+  banned                          Boolean                      @default(false)
+  banReason                       String?
+  banExpires                      DateTime?
+  createdAt                       DateTime                     @default(now())
+  updatedAt                       DateTime                     @default(now()) @updatedAt
+  sessions                        Session[]
+  accounts                        Account[]
+  addresses                       UserAddress[]
+  wishlistItems                   WishlistItem[]
+  createdBrands                   Brand[]
+  createdCategories               Category[]
+  createdProducts                 Product[]
+  createdInventoryLogs            InventoryLog[]
+  loyaltyWallet                   LoyaltyWallet?
+  loyaltyWalletsAsReferrer        LoyaltyWallet[]              @relation("LoyaltyWalletReferrer")
+  loyaltyPointTransactions        LoyaltyPointTransaction[]
+  loyaltyPointTransactionsCreated LoyaltyPointTransaction[]    @relation("LoyaltyPointTxCreatedBy")
+  referralsAsReferrer             Referral[]                   @relation("ReferralReferrer")
+  referralAsReferee               Referral?                    @relation("ReferralReferee")
+  loyaltySettingsUpdated          LoyaltySettings[]            @relation("LoyaltySettingsUpdatedBy")
+  heroBannersCreated              HeroBanner[]                 @relation("HeroBannerCreatedBy")
+  promotionCardsCreated           PromotionCard[]              @relation("PromotionCardCreatedBy")
+  announcementBarsCreated         AnnouncementBar[]            @relation("AnnouncementBarCreatedBy")
+  bankPaymentAccountsCreated      BankPaymentAccount[]         @relation("BankPaymentAccountCreatedBy")
+  createdShippingTypes            ShippingType[]               @relation("ShippingTypeCreatedBy")
+  createdShippingZones            ShippingZone[]               @relation("ShippingZoneCreatedBy")
+  createdShippingFeeRules         ShippingFeeRule[]            @relation("ShippingFeeRuleCreatedBy")
+  createdShippingSettings         ShippingSettings[]           @relation("ShippingSettingsCreatedBy")
+  orders                          Order[]
+  orderStatusChanges              OrderStatusHistory[]         @relation("OrderStatusChangedBy")
+  financialTransactionsCreated    FinancialTransaction[]       @relation("FinancialTransactionCreatedBy")
+  notificationSettingsUpdated     NotificationSetting[]        @relation("NotificationSettingsUpdatedBy")
+  adminNotificationsAbout         AdminNotification[]          @relation("AdminNotificationUser")
+  userNotifications               UserNotification[]
+  notificationPreferences         UserNotificationPreference[]
+  cart                            Cart?
+  adminRoleId                     String?                      @map("admin_role_id")
+  adminRole                       AdminRole?                   @relation("UserAdminRole", fields: [adminRoleId], references: [id], onDelete: SetNull)
+  createdAdminRoles               AdminRole[]                  @relation("AdminRoleCreatedBy")
+  createdProductSales             ProductSale[]                @relation("ProductSaleCreatedBy")
+
+  @@unique([email])
+  @@index([adminRoleId])
+  @@map("user")
+}
+
+enum EntityStatus {
+  active
+  inactive
+}
+
+enum ProductStatus {
+  active
+  out_of_stock
+  hidden
+}
+
+enum InventoryChangeType {
+  sale
+  restock
+  adjustment
+}
+
+/// Manual adjust UI mode — Add/Remove vs Set to absolute quantity.
+enum InventoryAdjustmentMode {
+  add_remove
+  set_to
+}
+
+/// Admin-selected reason for manual stock adjustments (Adjust Stock modal).
+enum InventoryAdjustmentReason {
+  restock
+  damaged
+  lost
+  manual_correction
+  return
+  initial_count
+  other
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String? //@db.Text
+  userAgent String? //@db.Text
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String //@db.Text
+  providerId            String //@db.Text
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String? //@db.Text
+  refreshToken          String? //@db.Text
+  idToken               String? //@db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String? //@db.Text
+  password              String? //@db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String //@db.Text
+  value      String //@db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model UserAddress {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label        String?  @default("Home")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  phone        String
+  postalCode   String   @map("postal_code")
+  prefecture   String?
+  city         String
+  addressLine1 String   @map("address_line_1")
+  addressLine2 String?  @map("address_line_2")
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_date")
+  updatedAt    DateTime @updatedAt @map("updated_date")
+
+  @@index([userId, isDefault])
+  @@index([postalCode])
+  @@map("user_address")
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_date")
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@map("wishlist_item")
+}
+
+model Brand {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?
+  logoUrl     String?      @map("logo_url")
+  websiteUrl  String?      @map("website_url")
+  status      EntityStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_date")
+  updatedAt   DateTime     @updatedAt @map("updated_date")
+  createdById String?      @map("created_by")
+  createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  products    Product[]
+  productSaleTargets ProductSaleBrand[]
+
+  @@index([name])
+  @@index([status])
+  @@map("brand")
+}
+
+model Category {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?
+  imageUrl    String?      @map("image_url")
+  sortOrder   Int          @default(0) @map("sort_order")
+  status      EntityStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_date")
+  updatedAt   DateTime     @updatedAt @map("updated_date")
+  createdById String?      @map("created_by")
+  createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  products    Product[]
+  productSaleTargets ProductSaleCategory[]
+
+  @@index([name])
+  @@index([sortOrder])
+  @@index([status])
+  @@map("category")
+}
+
+model Product {
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String              @unique
+  description        String?
+  categoryId         String?             @map("category_id")
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  brandId            String?             @map("brand_id")
+  brand              Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  tags               String[]
+  shippingTypeKey    String              @default("dry") @map("shipping_type_key")
+  shippingType       ShippingType        @relation(fields: [shippingTypeKey], references: [key], onDelete: Restrict)
+  status             ProductStatus       @default(active)
+  thumbnailUrl       String?             @map("thumbnail_url")
+  createdAt          DateTime            @default(now()) @map("created_date")
+  updatedAt          DateTime            @updatedAt @map("updated_date")
+  createdById        String?             @map("created_by")
+  createdBy          User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  variants           ProductVariant[]
+  images             ProductImage[]
+  inventoryLogs      InventoryLog[]
+  wishlistItems      WishlistItem[]
+  orderItems         OrderItem[]
+  cartItems          CartItem[]
+  adminNotifications AdminNotification[] @relation("AdminNotificationProduct")
+  productSaleTargets ProductSaleProduct[]
+
+  @@index([name])
+  @@index([categoryId, status])
+  @@index([brandId, status])
+  @@index([shippingTypeKey, status])
+  @@index([status])
+  @@map("product")
+}
+
+model ProductVariant {
+  id                 String              @id @default(cuid())
+  productId          String              @map("product_id")
+  product            Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku                String              @unique
+  weightValue        Decimal?            @map("weight_value") @db.Decimal(10, 2)
+  weightUnit         String?             @map("weight_unit")
+  costPerUnit        Decimal?            @map("cost_per_unit") @db.Decimal(12, 2) @default(0.0)
+  price              Decimal             @db.Decimal(10, 2)
+  stockQuantity      Int                 @default(0) @map("stock_quantity")
+  isActive           Boolean             @default(true) @map("is_active")
+  lowStockThreshold     Int                 @default(10) @map("low_stock_threshold")
+  /// Enable/disable low-stock / out-of-stock admin notifications for this variant.
+  lowStockAlertEnabled  Boolean             @default(true) @map("low_stock_alert_enabled")
+  /// Last time a low-stock admin notification was emitted.
+  lastLowStockAlertAt   DateTime?           @map("last_low_stock_alert_at")
+  /// Last time an out-of-stock admin notification was emitted.
+  lastOutOfStockAlertAt DateTime?           @map("last_out_of_stock_alert_at")
+  updatedAt             DateTime            @updatedAt @map("updated_date")
+  inventoryLogs         InventoryLog[]
+  orderItems            OrderItem[]
+  cartItems             CartItem[]
+  adminNotifications    AdminNotification[] @relation("AdminNotificationVariant")
+
+  @@index([productId, isActive])
+  @@index([stockQuantity])
+  @@index([stockQuantity, lowStockThreshold])
+  @@index([lowStockAlertEnabled])
+  @@index([updatedAt])
+  @@map("product_variant")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  imageUrl  String  @map("image_url")
+  sortOrder Int     @default(0) @map("sort_order")
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  @@unique([productId, imageUrl])
+  @@index([productId, sortOrder])
+  @@map("product_image")
+}
+
+model InventoryLog {
+  id             String              @id @default(cuid())
+  productId      String              @map("product_id")
+  product        Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId      String?             @map("variant_id")
+  variant        ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  changeType     InventoryChangeType @map("change_type")
+  quantityChange Int                 @map("quantity_change")
+  quantityBefore Int                 @map("quantity_before")
+  quantityAfter      Int                        @map("quantity_after")
+  note               String?
+  /// Manual adjust UI mode. Null for sale / automated flows.
+  adjustmentMode     InventoryAdjustmentMode?   @map("adjustment_mode")
+  /// Admin reason from Adjust Stock modal. Null for sale / automated flows.
+  adjustmentReason   InventoryAdjustmentReason? @map("adjustment_reason")
+  /// Absolute target quantity when adjustmentMode = set_to.
+  setToQuantity      Int?                       @map("set_to_quantity")
+  createdAt          DateTime                   @default(now()) @map("created_date")
+  createdById        String?                    @map("created_by")
+  createdBy          User?                      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([variantId, createdAt])
+  @@index([changeType, createdAt])
+  @@index([adjustmentReason, createdAt])
+  @@index([variantId, adjustmentReason, createdAt])
+  @@index([createdAt])
+  @@map("inventory_log")
+}
+
+// ─── Content (P3) — new tables only; relations tie into existing `User` ────
+
+model HeroBanner {
+  id          String       @id @default(cuid())
+  title       String
+  subtitle    String?
+  imageUrl    String?      @map("image_url")
+  buttonText  String?      @map("button_text")
+  buttonLink  String?      @map("button_link")
+  startDate   DateTime?    @map("start_date") @db.Date
+  endDate     DateTime?    @map("end_date") @db.Date
+  sortOrder   Int          @default(0) @map("sort_order")
+  status      EntityStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_date")
+  updatedAt   DateTime     @updatedAt @map("updated_date")
+  createdById String?      @map("created_by")
+  createdBy   User?        @relation("HeroBannerCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([sortOrder])
+  @@index([status, sortOrder])
+  @@index([startDate, endDate])
+  @@map("hero_banner")
+}
+
+model PromotionCard {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  imageUrl    String?      @map("image_url")
+  buttonText  String?      @map("button_text")
+  buttonLink  String?      @map("button_link")
+  sortOrder   Int          @default(0) @map("sort_order")
+  status      EntityStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_date")
+  updatedAt   DateTime     @updatedAt @map("updated_date")
+  createdById String?      @map("created_by")
+  createdBy   User?        @relation("PromotionCardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status, sortOrder])
+  @@index([title])
+  @@map("promotion_card")
+}
+
+model AnnouncementBar {
+  id          String       @id @default(cuid())
+  scope       String       @unique @default("default")
+  message     String       @db.Text
+  link        String?
+  status      EntityStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_date")
+  updatedAt   DateTime     @updatedAt @map("updated_date")
+  createdById String?      @map("created_by")
+  createdBy   User?        @relation("AnnouncementBarCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("announcement_bar")
+}
+
+// ─── Payment / Banking (P4) — manual transfer accounts; relations tie into `User` ───
+
+/// Store-facing Japanese bank account details for manual transfer checkout (admin Banking UI).
+model BankPaymentAccount {
+  id             String       @id @default(cuid())
+  accountHolder  String       @map("account_holder")
+  bankLogoUrl    String?      @map("bank_logo_url")
+  bankName       String       @map("bank_name")
+  branchName     String?      @map("branch_name")
+  branchCode     String?      @map("branch_code")
+  accountType    String       @default("普通 (Futsu)") @map("account_type")
+  accountNumber  String       @map("account_number")
+  bankCode       String?      @map("bank_code")
+  paymentMethods String[]     @default([]) @map("payment_methods")
+  notes          String?      @db.Text
+  isPrimary      Boolean      @default(false) @map("is_primary")
+  status         EntityStatus @default(active)
+  createdAt      DateTime     @default(now()) @map("created_date")
+  updatedAt      DateTime     @updatedAt @map("updated_date")
+  createdById    String?      @map("created_by")
+  createdBy      User?        @relation("BankPaymentAccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  orders         Order[]
+
+  @@index([status])
+  @@index([isPrimary])
+  @@index([status, isPrimary])
+  @@index([createdAt])
+  @@index([bankName])
+  @@map("bank_payment_account")
+}
+
+// ─── Shipping (P5) — zones, types, fee rules, settings ───
+
+model ShippingType {
+  id          String            @id @default(cuid())
+  name        String
+  key         String            @unique
+  description String?           @db.Text
+  status      EntityStatus      @default(active)
+  createdAt   DateTime          @default(now()) @map("created_date")
+  updatedAt   DateTime          @updatedAt @map("updated_date")
+  createdById String?           @map("created_by")
+  createdBy   User?             @relation("ShippingTypeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  feeRules    ShippingFeeRule[]
+  products    Product[]
+
+  @@index([name])
+  @@index([status])
+  @@map("shipping_type")
+}
+
+model ShippingZone {
+  id           String            @id @default(cuid())
+  name         String
+  deliveryDays Int               @map("delivery_days")
+  locations    String[]          @default([])
+  surcharge    Decimal           @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime          @default(now()) @map("created_date")
+  updatedAt    DateTime          @updatedAt @map("updated_date")
+  createdById  String?           @map("created_by")
+  createdBy    User?             @relation("ShippingZoneCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  feeRules     ShippingFeeRule[]
+
+  @@index([name])
+  @@index([deliveryDays])
+  @@index([createdAt])
+  @@map("shipping_zone")
+}
+
+model ShippingFeeRule {
+  id              String       @id @default(cuid())
+  shippingTypeKey String       @map("shipping_type_key")
+  shippingType    ShippingType @relation(fields: [shippingTypeKey], references: [key], onDelete: Cascade)
+  zoneId          String       @map("zone_id")
+  zone            ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  baseFee         Decimal      @default(0) @map("base_fee") @db.Decimal(12, 2)
+  createdAt       DateTime     @default(now()) @map("created_date")
+  updatedAt       DateTime     @updatedAt @map("updated_date")
+  createdById     String?      @map("created_by")
+  createdBy       User?        @relation("ShippingFeeRuleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([shippingTypeKey, zoneId])
+  @@index([zoneId])
+  @@index([shippingTypeKey])
+  @@index([createdAt])
+  @@map("shipping_fee_rule")
+}
+
+model ShippingSettings {
+  id                    String   @id @default(cuid())
+  scope                 String   @unique @default("default")
+  weightThreshold       Decimal  @default(0) @map("weight_threshold") @db.Decimal(10, 2)
+  extraFeePerKg         Decimal  @default(0) @map("extra_fee_per_kg") @db.Decimal(12, 2)
+  freeShippingEnabled   Boolean  @default(false) @map("free_shipping_enabled")
+  freeShippingThreshold Decimal  @default(0) @map("free_shipping_threshold") @db.Decimal(12, 2)
+  createdAt             DateTime @default(now()) @map("created_date")
+  updatedAt             DateTime @updatedAt @map("updated_date")
+  createdById           String?  @map("created_by")
+  createdBy             User?    @relation("ShippingSettingsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("shipping_settings")
+}
+
+// ─── Loyalty (P2) — new tables only; relations tie into existing `User` ─────
+
+enum LoyaltyRewardTarget {
+  both_users
+  referrer_only
+  referee_only
+}
+
+enum LoyaltyPointTransactionType {
+  earn
+  spend
+  referral_reward
+  manual_adjustment
+}
+
+enum ReferralStatus {
+  pending
+  rewarded
+}
+
+/// Store-wide loyalty rules (admin UI: Points Rules + Referral Rewards).
+model LoyaltySettings {
+  id                            String              @id @default(cuid())
+  pointsPerAmount               Int                 @default(100) @map("points_per_amount")
+  pointValue                    Decimal             @map("point_value") @db.Decimal(12, 2)
+  minimumRedeemPoints           Int                 @default(1) @map("minimum_redeem_points")
+  referralRewardPoints          Int                 @default(0) @map("referral_reward_points")
+  referralSpendThreshold        Decimal             @map("referral_spend_threshold") @db.Decimal(12, 2)
+  /// Invited friend one-time discount (¥) — customer “Invite Friends” card + checkout coupon amount.
+  referralRefereeDiscountAmount Decimal             @default(0) @map("referral_referee_discount_amount") @db.Decimal(12, 2)
+  rewardTarget                  LoyaltyRewardTarget @default(both_users) @map("reward_target")
+  createdAt                     DateTime            @default(now()) @map("created_at")
+  updatedAt                     DateTime            @updatedAt @map("updated_at")
+  updatedById                   String?             @map("updated_by")
+  updatedBy                     User?               @relation("LoyaltySettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("loyalty_settings")
+}
+
+/// One wallet per user: balance + personal referral code + optional referrer link.
+model LoyaltyWallet {
+  id             String   @id @default(cuid())
+  userId         String   @unique @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  pointsBalance  Int      @default(0) @map("points_balance")
+  referralCode   String   @unique @map("referral_code")
+  referrerUserId String?  @map("referrer_user_id")
+  referrer       User?    @relation("LoyaltyWalletReferrer", fields: [referrerUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([referrerUserId])
+  @@map("loyalty_wallet")
+}
+
+/// Ledger: earn / spend / referral_reward / manual_adjustment (matches admin history UI).
+model LoyaltyPointTransaction {
+  id          String                      @id @default(cuid())
+  userId      String                      @map("user_id")
+  user        User                        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  type        LoyaltyPointTransactionType
+  points      Int
+  source      String?
+  orderId     String?                     @map("order_id")
+  order       Order?                      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderNumber String?                     @map("order_number")
+  note        String?
+  referralId  String?                     @map("referral_id")
+  referral    Referral?                   @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  createdById String?                     @map("created_by")
+  createdBy   User?                       @relation("LoyaltyPointTxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime                    @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@index([referralId])
+  @@index([createdAt])
+  @@map("loyalty_point_transaction")
+}
+
+/// Referral lifecycle: invited user (referee) is unique per row; threshold snapshot for history UI.
+model Referral {
+  id                       String                    @id @default(cuid())
+  referrerUserId           String                    @map("referrer_user_id")
+  referrer                 User                      @relation("ReferralReferrer", fields: [referrerUserId], references: [id], onDelete: Restrict)
+  refereeUserId            String                    @unique @map("referee_user_id")
+  referee                  User                      @relation("ReferralReferee", fields: [refereeUserId], references: [id], onDelete: Restrict)
+  referralCodeUsed         String                    @map("referral_code_used")
+  spendingThreshold        Decimal                   @map("spending_threshold") @db.Decimal(12, 2)
+  /// Copy of friend discount (¥) at signup — survives later admin settings changes (My Accounts “Friend gets ¥…”).
+  refereeDiscountSnapshot  Decimal?                  @map("referee_discount_snapshot") @db.Decimal(12, 2)
+  rewardPoints             Int                       @default(0) @map("reward_points")
+  status                   ReferralStatus            @default(pending)
+  rewardedAt               DateTime?                 @map("rewarded_at")
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  updatedAt                DateTime                  @updatedAt @map("updated_at")
+  loyaltyPointTransactions LoyaltyPointTransaction[]
+
+  @@index([referrerUserId, status])
+  @@index([referrerUserId, createdAt])
+  @@index([status, createdAt])
+  @@map("referral")
+}
+
+// ─── Orders · Finance · Notifications (P6) ───────────────────────────────────
+
+enum OrderStatus {
+  pending
+  confirmed
+  preparing
+  shipped
+  delivered
+  cancelled
+}
+
+enum DeliveryTimeSlot {
+  morning
+  afternoon
+  evening
+}
+
+enum PaymentMethod {
+  bank_transfer
+  cod
+}
+
+enum PaymentStatus {
+  pending
+  confirmed
+  failed
+}
+
+enum CheckoutShippingMethod {
+  standard
+  cool
+  frozen
+}
+
+enum FinancialTransactionType {
+  order_payment
+  shipping_fee
+  discount
+  points_redeemed
+}
+
+enum TransactionCurrency {
+  jpy
+  points
+}
+
+enum NotificationEventType {
+  order_confirmed
+  order_shipped
+  order_delivered
+  points_earned
+  referral_reward
+  promotion
+  announcement
+}
+
+/// Customer inbox — excludes promotion/announcement (schema-enforced subset).
+enum CustomerNotificationEventType {
+  order_confirmed
+  order_shipped
+  order_delivered
+  points_earned
+  referral_reward
+}
+
+enum AdminNotificationType {
+  order
+  inventory
+  customer
+  system
+}
+
+/// Customer order — checkout snapshot + admin workflow.
+model Order {
+  id                       String                    @id @default(cuid())
+  orderNumber              String                    @unique @map("order_number")
+  userId                   String                    @map("user_id")
+  user                     User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  customerName             String                    @map("customer_name")
+  customerEmail            String                    @map("customer_email")
+  customerPhone            String                    @map("customer_phone")
+  deliveryAddress          String                    @map("delivery_address") @db.Text
+  postalCode               String                    @map("postal_code")
+  prefecture               String?
+  city                     String
+  addressLine1             String                    @map("address_line_1")
+  addressLine2             String?                   @map("address_line_2")
+  subtotal                 Decimal                   @db.Decimal(12, 2)
+  shippingFee              Decimal                   @default(0) @map("shipping_fee") @db.Decimal(12, 2)
+  pointsDiscount           Decimal                   @default(0) @map("points_discount") @db.Decimal(12, 2)
+  total                    Decimal                   @db.Decimal(12, 2)
+  pointsEarned             Int                       @default(0) @map("points_earned")
+  pointsUsed               Int                       @default(0) @map("points_used")
+  status                   OrderStatus               @default(pending)
+  isLocked                 Boolean                   @default(false) @map("is_locked")
+  deliveryDate             DateTime?                 @map("delivery_date") @db.Date
+  deliveryTimeSlot         DeliveryTimeSlot?         @map("delivery_time_slot")
+  customerNote             String?                   @map("customer_note") @db.Text
+  adminNote                String?                   @map("admin_note") @db.Text
+  paymentMethod            PaymentMethod             @map("payment_method")
+  paymentStatus            PaymentStatus             @default(pending) @map("payment_status")
+  customerBankChoice       String?                   @map("customer_bank_choice")
+  transferProofUrl         String?                   @map("transfer_proof_url")
+  bankPaymentAccountId     String?                   @map("bank_payment_account_id")
+  bankPaymentAccount       BankPaymentAccount?       @relation(fields: [bankPaymentAccountId], references: [id], onDelete: SetNull)
+  checkoutShippingMethod   CheckoutShippingMethod    @map("checkout_shipping_method")
+  /// Active courier tracking number — denormalized from the latest OrderStatusHistory row that set it (admin Order Detail UI source of truth).
+  trackingCode             String?                   @map("tracking_code")
+  createdAt                DateTime                  @default(now()) @map("created_date")
+  updatedAt                DateTime                  @updatedAt @map("updated_date")
+  items                    OrderItem[]
+  statusHistory            OrderStatusHistory[]
+  financialTransactions    FinancialTransaction[]
+  loyaltyPointTransactions LoyaltyPointTransaction[]
+  userNotifications        UserNotification[]
+  adminNotifications       AdminNotification[]
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([trackingCode])
+  @@map("order")
+}
+
+/// Line-item snapshot at order time.
+model OrderItem {
+  id           String          @id @default(cuid())
+  orderId      String          @map("order_id")
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String          @map("product_id")
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId    String?         @map("variant_id")
+  variant      ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  productName  String          @map("product_name")
+  variantLabel String          @map("variant_label")
+  sku          String
+  quantity     Int
+  costPerUnit  Decimal?        @map("cost_per_unit") @db.Decimal(12, 2) @default(0.0)
+  unitPrice    Decimal         @map("unit_price") @db.Decimal(12, 2)
+  lineTotal    Decimal         @map("line_total") @db.Decimal(12, 2)
+  thumbnailUrl String?         @map("thumbnail_url")
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("order_item")
+}
+
+/// Status timeline — drives customer order notifications.
+model OrderStatusHistory {
+  id             String      @id @default(cuid())
+  orderId        String      @map("order_id")
+  order          Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status         OrderStatus
+  /// Courier tracking number captured at this exact transition (typically when status → shipped). Snapshot — never mutated, even if Order.trackingCode is later corrected.
+  trackingCode   String?     @map("tracking_code")
+  changedAt      DateTime    @default(now()) @map("changed_at")
+  changedById    String?     @map("changed_by")
+  changedBy      User?       @relation("OrderStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  changedByLabel String?     @map("changed_by_label")
+
+  @@index([orderId, changedAt])
+  @@map("order_status_history")
+}
+
+/// Immutable per-order ledger row — corrections via new rows only (no updatedAt).
+model FinancialTransaction {
+  id          String                   @id @default(cuid())
+  orderId     String                   @map("order_id")
+  order       Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderNumber String                   @map("order_number")
+  type        FinancialTransactionType
+  amount      Decimal                  @db.Decimal(12, 2)
+  currency    TransactionCurrency      @default(jpy)
+  description String                   @db.Text
+  createdAt   DateTime                 @default(now()) @map("created_date")
+  createdById String?                  @map("created_by")
+  createdBy   User?                    @relation("FinancialTransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([orderNumber])
+  @@index([type, createdAt])
+  @@index([createdAt])
+  @@map("financial_transaction")
+}
+
+/// Store-wide notification channel defaults (admin Settings → Notifications tab).
+model NotificationSetting {
+  id             String                @id @default(cuid())
+  eventType      NotificationEventType @unique @map("event_type")
+  websiteEnabled Boolean               @default(true) @map("website_enabled")
+  pushEnabled    Boolean               @default(false) @map("push_enabled")
+  emailEnabled   Boolean               @default(false) @map("email_enabled")
+  createdAt      DateTime              @default(now()) @map("created_date")
+  updatedAt      DateTime              @updatedAt @map("updated_date")
+  updatedById    String?               @map("updated_by")
+  updatedBy      User?                 @relation("NotificationSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("notification_setting")
+}
+
+/// Per-user channel overrides (customer profile — optional future UI).
+model UserNotificationPreference {
+  id             String                @id @default(cuid())
+  userId         String                @map("user_id")
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType      NotificationEventType @map("event_type")
+  websiteEnabled Boolean               @default(true) @map("website_enabled")
+  pushEnabled    Boolean               @default(false) @map("push_enabled")
+  emailEnabled   Boolean               @default(false) @map("email_enabled")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  @@unique([userId, eventType])
+  @@index([userId])
+  @@map("user_notification_preference")
+}
+
+/// Admin bell inbox — MVP: shared store-wide `read` flag (not per-admin).
+model AdminNotification {
+  id        String                @id @default(cuid())
+  type      AdminNotificationType
+  title     String
+  message   String                @db.Text
+  read      Boolean               @default(false)
+  orderId   String?               @map("order_id")
+  order     Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  userId    String?               @map("user_id")
+  user      User?                 @relation("AdminNotificationUser", fields: [userId], references: [id], onDelete: SetNull)
+  productId String?               @map("product_id")
+  product   Product?              @relation("AdminNotificationProduct", fields: [productId], references: [id], onDelete: SetNull)
+  variantId String?               @map("variant_id")
+  variant   ProductVariant?       @relation("AdminNotificationVariant", fields: [variantId], references: [id], onDelete: SetNull)
+  createdAt DateTime              @default(now()) @map("created_at")
+
+  @@index([read, createdAt])
+  @@index([type, createdAt])
+  @@map("admin_notification")
+}
+
+/// Customer notification inbox — CustomerNotificationEventType only.
+model UserNotification {
+  id        String                        @id @default(cuid())
+  userId    String                        @map("user_id")
+  user      User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType CustomerNotificationEventType @map("event_type")
+  title     String
+  message   String                        @db.Text
+  read      Boolean                       @default(false)
+  orderId   String?                       @map("order_id")
+  order     Order?                        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt DateTime                      @default(now()) @map("created_at")
+
+  @@index([userId, read, createdAt])
+  @@index([orderId])
+  @@map("user_notification")
+}
+
+// ─── Cart (P7) — active shopping cart; live join, no snapshot ────────────────
+
+/// User တစ်ဦးတွင် active cart တစ်ခုသာ — checkout သို့ ပြောင်းပါက items ဖျက်
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now()) @map("created_date")
+  updatedAt DateTime   @updatedAt @map("updated_date")
+
+  @@map("cart")
+}
+
+/// Active cart line items — live join to Product/Variant; no price snapshot.
+model CartItem {
+  id        String         @id @default(cuid())
+  cartId    String         @map("cart_id")
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String         @map("product_id")
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String         @map("variant_id")
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int            @default(1)
+  createdAt DateTime       @default(now()) @map("created_date")
+  updatedAt DateTime       @updatedAt @map("updated_date")
+
+  @@unique([cartId, variantId])
+  @@index([cartId, createdAt])
+  @@index([productId])
+  @@index([variantId])
+  @@map("cart_item")
+}
+
+// ─── Admin RBAC (P8) — dynamic roles; better-auth User.role unchanged ─────────
+
+/// Module-level admin permission keys — matches PERMISSION_MODULES in roles-tab.tsx.
+enum AdminPermissionModule {
+  dashboard
+  products
+  categories
+  brands
+  inventory
+  orders
+  customers
+  shipping
+  loyalty
+  promotions
+  content
+  finance
+  transactions
+  banking
+  reports
+  admin_users
+  admin_roles
+  order_export
+  notifications
+  settings
+}
+
+/// Dynamic admin role + module-level permission set — admin Settings → Roles tab.
+model AdminRole {
+  id          String                  @id @default(cuid())
+  name        String
+  key         String                  @unique
+  description String?
+  permissions AdminPermissionModule[] @default([])
+  isSystem    Boolean                 @default(false) @map("is_system")
+  createdAt   DateTime                @default(now()) @map("created_date")
+  updatedAt   DateTime                @updatedAt @map("updated_date")
+  createdById String?                 @map("created_by")
+  createdBy   User?                   @relation("AdminRoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  users       User[]                  @relation("UserAdminRole")
+
+  @@index([isSystem])
+  @@index([name])
+  @@map("admin_role")
+}
+
+// ─── Promotions · Product Sale (P10) — new models only ───────────────────────
+
+enum ProductSaleDiscountType {
+  percentage
+  fixed
+}
+
+enum ProductSaleStatus {
+  draft
+  scheduled
+  active
+  expired
+  deactivated
+}
+
+/// Individual product include/exclude within a sale's targeting.
+enum ProductSaleTargetMode {
+  included
+  excluded
+}
+
+/// Product-level discount campaign — bulk (category/brand) + individual targeting.
+model ProductSale {
+  id              String                  @id @default(cuid())
+  name            String
+  internalNote    String?                 @map("internal_note") @db.Text
+  badgeLabel      String                  @default("SALE") @map("badge_label")
+  discountType    ProductSaleDiscountType @default(percentage) @map("discount_type")
+  discountValue   Decimal                 @default(0) @map("discount_value") @db.Decimal(10, 2)
+  startDatetime   DateTime?               @map("start_datetime")
+  endDatetime     DateTime?               @map("end_datetime")
+  noEndDate       Boolean                 @default(false) @map("no_end_date")
+  applyToWebsite  Boolean                 @default(true) @map("apply_to_website")
+  applyToApp      Boolean                 @default(true) @map("apply_to_app")
+  showOnSalesPage Boolean                 @default(true) @map("show_on_sales_page")
+  status          ProductSaleStatus       @default(draft)
+  createdAt       DateTime                @default(now()) @map("created_date")
+  updatedAt       DateTime                @updatedAt @map("updated_date")
+  createdById     String?                 @map("created_by")
+  createdBy       User?                   @relation("ProductSaleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  targetCategories ProductSaleCategory[]
+  targetBrands     ProductSaleBrand[]
+  targetProducts   ProductSaleProduct[]
+
+  @@index([status, startDatetime])
+  @@index([status, endDatetime])
+  @@index([showOnSalesPage, status])
+  @@index([name])
+  @@index([createdAt])
+  @@map("product_sale")
+}
+
+/// Bulk targeting — every product in this category is on sale (unless excluded).
+model ProductSaleCategory {
+  id         String      @id @default(cuid())
+  saleId     String      @map("sale_id")
+  sale       ProductSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  categoryId String      @map("category_id")
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([saleId, categoryId])
+  @@index([categoryId])
+  @@map("product_sale_category")
+}
+
+/// Bulk targeting — every product of this brand is on sale (unless excluded).
+model ProductSaleBrand {
+  id      String      @id @default(cuid())
+  saleId  String      @map("sale_id")
+  sale    ProductSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  brandId String      @map("brand_id")
+  brand   Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([saleId, brandId])
+  @@index([brandId])
+  @@map("product_sale_brand")
+}
+
+/// Individual override — force include or exclude a specific product.
+model ProductSaleProduct {
+  id        String                @id @default(cuid())
+  saleId    String                @map("sale_id")
+  sale      ProductSale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String                @map("product_id")
+  product   Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mode      ProductSaleTargetMode
+
+  @@unique([saleId, productId])
+  @@index([productId])
+  @@index([saleId, mode])
+  @@map("product_sale_product")
+}
