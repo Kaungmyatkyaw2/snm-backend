@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsArray,
   IsEnum,
   IsNumber,
@@ -10,6 +11,8 @@ import {
 } from 'class-validator';
 
 const PRODUCT_SORT_OPTIONS = ['newest', 'price-low', 'price-high'] as const;
+const PRODUCT_SORT_BY_OPTIONS = ['createdAt', 'price'] as const;
+const PRODUCT_SORT_DIR_OPTIONS = ['asc', 'desc'] as const;
 
 export class ProductQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -29,12 +32,28 @@ export class ProductQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  category_id?: string;
+  category_slug?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   shipping_type?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      return value === 'true';
+    }
+
+    return undefined;
+  })
+  @IsBoolean()
+  in_stock?: boolean;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -68,7 +87,17 @@ export class ProductQueryDto {
   @IsNumber()
   max_price?: number;
 
-  @ApiPropertyOptional({ enum: PRODUCT_SORT_OPTIONS })
+  @ApiPropertyOptional({ enum: PRODUCT_SORT_BY_OPTIONS })
+  @IsOptional()
+  @IsEnum(PRODUCT_SORT_BY_OPTIONS)
+  sort_by?: 'createdAt' | 'price';
+
+  @ApiPropertyOptional({ enum: PRODUCT_SORT_DIR_OPTIONS })
+  @IsOptional()
+  @IsEnum(PRODUCT_SORT_DIR_OPTIONS)
+  sort_dir?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({ enum: PRODUCT_SORT_OPTIONS, deprecated: true })
   @IsOptional()
   @IsEnum(PRODUCT_SORT_OPTIONS)
   sort?: 'newest' | 'price-low' | 'price-high';

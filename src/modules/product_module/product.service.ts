@@ -11,6 +11,32 @@ export class ProductService {
     const page = query.page || 1;
     const limit = query.limit || 12;
     const skip = (page - 1) * limit;
+    const variantFilter: Prisma.ProductVariantWhereInput = {
+      isActive: true,
+      ...(query.in_stock ? { stockQuantity: { gt: 0 } } : {}),
+      ...(query.min_price !== undefined || query.max_price !== undefined
+        ? {
+            price: {
+              ...(query.min_price !== undefined ? { gte: query.min_price } : {}),
+              ...(query.max_price !== undefined ? { lte: query.max_price } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const normalizedSortBy =
+      query.sort_by ||
+      (query.sort === 'price-low' || query.sort === 'price-high'
+        ? 'price'
+        : 'createdAt');
+    const normalizedSortDir =
+      query.sort_dir ||
+      (query.sort === 'price-low'
+        ? 'asc'
+        : query.sort === 'price-high'
+          ? 'desc'
+          : 'desc');
+    const isPriceSort = normalizedSortBy === 'price';
 
     const where: Prisma.ProductWhereInput = {
       status: 'active',
@@ -22,7 +48,13 @@ export class ProductService {
             },
           }
         : {}),
-      ...(query.category_id ? { categoryId: query.category_id } : {}),
+      ...(query.category_slug
+        ? {
+            category: {
+              slug: query.category_slug,
+            },
+          }
+        : {}),
       ...(query.shipping_type ? { shippingTypeKey: query.shipping_type } : {}),
       ...(query.brand_slugs?.length
         ? {
@@ -33,16 +65,10 @@ export class ProductService {
             },
           }
         : {}),
-      ...(query.min_price !== undefined || query.max_price !== undefined
+      ...(query.in_stock || query.min_price !== undefined || query.max_price !== undefined
         ? {
             variants: {
-              some: {
-                isActive: true,
-                price: {
-                  ...(query.min_price !== undefined ? { gte: query.min_price } : {}),
-                  ...(query.max_price !== undefined ? { lte: query.max_price } : {}),
-                },
-              },
+              some: variantFilter,
             },
           }
         : {}),
@@ -51,9 +77,9 @@ export class ProductService {
     const [rawProducts, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        orderBy: [{ createdAt: 'desc' }],
-        skip: query.sort === 'price-low' || query.sort === 'price-high' ? 0 : skip,
-        take: query.sort === 'price-low' || query.sort === 'price-high' ? undefined : limit,
+        orderBy: isPriceSort ? [{ createdAt: 'desc' }] : [{ [normalizedSortBy]: normalizedSortDir }],
+        skip: isPriceSort ? 0 : skip,
+        take: isPriceSort ? undefined : limit,
         select: {
           id: true,
           name: true,
@@ -99,12 +125,14 @@ export class ProductService {
       })),
     }));
 
-    if (query.sort === 'price-low' || query.sort === 'price-high') {
+    if (isPriceSort) {
       products.sort((left, right) => {
         const leftMin = left.variants[0]?.price ?? 0;
         const rightMin = right.variants[0]?.price ?? 0;
 
-        return query.sort === 'price-low' ? leftMin - rightMin : rightMin - leftMin;
+        return normalizedSortDir === 'asc'
+          ? leftMin - rightMin
+          : rightMin - leftMin;
       });
 
       return {
