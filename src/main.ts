@@ -5,7 +5,9 @@ import { AuthService } from '@thallesp/nestjs-better-auth';
 import { toNodeHandler } from 'better-auth/node';
 import { useContainer } from 'class-validator';
 import * as compression from 'compression';
+import * as express from 'express';
 import helmet from 'helmet';
+import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -19,8 +21,11 @@ async function bootstrap() {
   const authService = app.get<AuthService>(AuthService);
 
   expressApp.all(/^\/api\/auth\/.*/, toNodeHandler(authService.instance.handler));
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  expressApp.use(require('express').json());
+  expressApp.use(express.json());
+  expressApp.use(
+    '/uploads',
+    express.static(path.join(process.cwd(), 'uploads')),
+  );
 
   const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')

@@ -6,7 +6,10 @@ import { auth } from './common/auth';
 import { PrismaModule } from './database/prisma.module';
 import { AuthAppModule } from './modules/auth_module/auth.module';
 import { BrandModule } from './modules/brand_module/brand.module';
+import { CartModule } from './modules/cart_module/cart.module';
 import { CategoryModule } from './modules/category_module/category.module';
+import { CheckoutModule } from './modules/checkout_module/checkout.module';
+import { MediaModule } from './modules/media_module/media.module';
 import { ProductModule } from './modules/product_module/product.module';
 
 @Module({
@@ -31,6 +34,9 @@ import { ProductModule } from './modules/product_module/product.module';
     CategoryModule,
     BrandModule,
     ProductModule,
+    CartModule,
+    CheckoutModule,
+    MediaModule,
   ],
 })
 export class AppModule {}
