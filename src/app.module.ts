@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 import { auth } from './common/auth';
 import { PrismaModule } from './database/prisma.module';
+import { AddressModule } from './modules/address_module/address.module';
 import { AuthAppModule } from './modules/auth_module/auth.module';
 import { BrandModule } from './modules/brand_module/brand.module';
 import { CartModule } from './modules/cart_module/cart.module';
@@ -11,6 +12,7 @@ import { CategoryModule } from './modules/category_module/category.module';
 import { CheckoutModule } from './modules/checkout_module/checkout.module';
 import { MediaModule } from './modules/media_module/media.module';
 import { ProductModule } from './modules/product_module/product.module';
+import { WishlistModule } from './modules/wishlist_module/wishlist.module';
 
 @Module({
   imports: [
@@ -31,12 +33,14 @@ import { ProductModule } from './modules/product_module/product.module';
     }),
     PrismaModule,
     AuthAppModule,
+    AddressModule,
     CategoryModule,
     BrandModule,
     ProductModule,
     CartModule,
     CheckoutModule,
     MediaModule,
+    WishlistModule,
   ],
 })
 export class AppModule {}
