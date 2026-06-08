@@ -22,6 +22,59 @@ const addressSelect = {
 export class AddressService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async lookupPostalCode(postalCode: string) {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postalCode)}&country=JP&format=json&accept-language=en&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'ShweNyarMyayMobile/1.0',
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error('Postal code lookup is temporarily unavailable');
+    }
+
+    const payload: unknown = await response.json();
+
+    if (!Array.isArray(payload) || payload.length === 0) {
+      return { city: null, address: null };
+    }
+
+    const firstResult = payload[0] as {
+      display_name?: unknown;
+      address?: {
+        suburb?: unknown;
+        town?: unknown;
+        village?: unknown;
+      };
+    };
+    const displayName =
+      typeof firstResult.display_name === 'string'
+        ? firstResult.display_name
+        : '';
+    const parts = displayName.split(', ').filter(Boolean);
+    const city =
+      parts.length > 1 ? parts.slice(0, -1).reverse().join(', ') : null;
+    const addressDetails = firstResult.address;
+    const addressCandidates = [
+      addressDetails?.suburb,
+      addressDetails?.town,
+      addressDetails?.village,
+    ];
+    const address =
+      addressCandidates.find(
+        (value): value is string =>
+          typeof value === 'string' && value.trim().length > 0,
+      ) ?? null;
+
+    return {
+      city: city || null,
+      address,
+    };
+  }
+
   async getMyAddresses(userId: string) {
     return this.prisma.userAddress.findMany({
       where: { userId },

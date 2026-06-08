@@ -7,14 +7,21 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard, Session, UserSession } from '@thallesp/nestjs-better-auth';
+import {
+  AllowAnonymous,
+  AuthGuard,
+  Session,
+  UserSession,
+} from '@thallesp/nestjs-better-auth';
 import { Response } from 'express';
 import { Representation } from 'src/common/helpers/representation.helper';
 import { AddressService } from './address.service';
+import { PostalCodeQueryDto } from './dto/postal-code-query.dto';
 import { UpsertAddressDto } from './dto/upsert-address.dto';
 
 @Controller('address')
@@ -23,6 +30,27 @@ import { UpsertAddressDto } from './dto/upsert-address.dto';
 @ApiBearerAuth()
 export class AddressController {
   constructor(private readonly addressService: AddressService) {}
+
+  @Get('postal-code/lookup')
+  @AllowAnonymous()
+  @ApiOperation({ summary: 'Look up city and street by Japanese postal code' })
+  async lookupPostalCode(
+    @Query() query: PostalCodeQueryDto,
+    @Res() response: Response,
+  ) {
+    try {
+      const address = await this.addressService.lookupPostalCode(
+        query.postalCode,
+      );
+      return new Representation(
+        'Postal code lookup completed',
+        address,
+        response,
+      ).sendSingle();
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get current user addresses' })

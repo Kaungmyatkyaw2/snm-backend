@@ -41,6 +41,11 @@ export class ProductQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  tag?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'boolean') {
       return value;

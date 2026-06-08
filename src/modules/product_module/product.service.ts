@@ -37,6 +37,7 @@ export class ProductService {
           ? 'desc'
           : 'desc');
     const isPriceSort = normalizedSortBy === 'price';
+    const tagCandidates = this.getTagCandidates(query.tag);
 
     const where: Prisma.ProductWhereInput = {
       status: 'active',
@@ -56,6 +57,13 @@ export class ProductService {
           }
         : {}),
       ...(query.shipping_type ? { shippingTypeKey: query.shipping_type } : {}),
+      ...(tagCandidates.length
+        ? {
+            tags: {
+              hasSome: tagCandidates,
+            },
+          }
+        : {}),
       ...(query.brand_slugs?.length
         ? {
             brand: {
@@ -142,6 +150,28 @@ export class ProductService {
     }
 
     return { data: products, total };
+  }
+
+  private getTagCandidates(tag?: string) {
+    const normalizedTag = tag?.trim();
+
+    if (!normalizedTag) {
+      return [];
+    }
+
+    const titleCaseTag = normalizedTag
+      .split(/\s+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+
+    return Array.from(
+      new Set([
+        normalizedTag,
+        normalizedTag.toLowerCase(),
+        normalizedTag.toUpperCase(),
+        titleCaseTag,
+      ]),
+    );
   }
 
   async getProductBySlug(slug: string) {

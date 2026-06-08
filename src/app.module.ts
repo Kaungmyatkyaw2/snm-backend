@@ -10,7 +10,11 @@ import { BrandModule } from './modules/brand_module/brand.module';
 import { CartModule } from './modules/cart_module/cart.module';
 import { CategoryModule } from './modules/category_module/category.module';
 import { CheckoutModule } from './modules/checkout_module/checkout.module';
+import { LoyaltyModule } from './modules/loyalty_module/loyalty.module';
 import { MediaModule } from './modules/media_module/media.module';
+import { NotificationModule } from './modules/notification_module/notification.module';
+import { OrderModule } from './modules/order_module/order.module';
+import { PaymentModule } from './modules/payment_module/payment.module';
 import { ProductModule } from './modules/product_module/product.module';
 import { WishlistModule } from './modules/wishlist_module/wishlist.module';
 
@@ -39,7 +43,11 @@ import { WishlistModule } from './modules/wishlist_module/wishlist.module';
     ProductModule,
     CartModule,
     CheckoutModule,
+    LoyaltyModule,
     MediaModule,
+    NotificationModule,
+    OrderModule,
+    PaymentModule,
     WishlistModule,
   ],
 })
