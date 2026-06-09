@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, IsUrl, Min } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 const PAYMENT_METHODS = ['cod', 'bank_transfer'] as const;
 const DELIVERY_TIME_SLOTS = ['morning', 'afternoon', 'evening'] as const;
@@ -35,6 +44,17 @@ export class CreateCheckoutDto {
   @IsOptional()
   @IsString()
   customerNote?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  customerPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  customerEmail?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

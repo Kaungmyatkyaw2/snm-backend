@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
+  Patch,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -15,8 +17,9 @@ import {
 import { Response } from 'express';
 import { Representation } from 'src/common/helpers/representation.helper';
 import { AuthAppService } from './auth.service';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
-@Controller('auth')
+@Controller('account')
 @ApiTags('auth')
 export class AuthAppController {
   constructor(private readonly authService: AuthAppService) {}
@@ -30,6 +33,30 @@ export class AuthAppController {
       const user = await this.authService.getCurrentUser(session.user.id);
       return new Representation(
         'Authenticated user retrieved successfully',
+        user,
+        response,
+      ).sendSingle();
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
+  }
+
+  @Patch('onboarding')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Complete current user onboarding profile' })
+  async completeOnboarding(
+    @Session() session: UserSession,
+    @Body() payload: CompleteOnboardingDto,
+    @Res() response: Response,
+  ) {
+    try {
+      const user = await this.authService.completeOnboarding(
+        session.user.id,
+        payload,
+      );
+      return new Representation(
+        'Onboarding profile completed successfully',
         user,
         response,
       ).sendSingle();

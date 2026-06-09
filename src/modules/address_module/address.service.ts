@@ -45,6 +45,9 @@ export class AddressService {
     const firstResult = payload[0] as {
       display_name?: unknown;
       address?: {
+        state?: unknown;
+        city?: unknown;
+        county?: unknown;
         suburb?: unknown;
         town?: unknown;
         village?: unknown;
@@ -58,6 +61,19 @@ export class AddressService {
     const city =
       parts.length > 1 ? parts.slice(0, -1).reverse().join(', ') : null;
     const addressDetails = firstResult.address;
+    const prefecture =
+      typeof addressDetails?.state === 'string' ? addressDetails.state : null;
+    const cityCandidates = [
+      addressDetails?.city,
+      addressDetails?.county,
+      addressDetails?.town,
+      addressDetails?.village,
+    ];
+    const resolvedCity =
+      cityCandidates.find(
+        (value): value is string =>
+          typeof value === 'string' && value.trim().length > 0,
+      ) ?? city;
     const addressCandidates = [
       addressDetails?.suburb,
       addressDetails?.town,
@@ -70,7 +86,8 @@ export class AddressService {
       ) ?? null;
 
     return {
-      city: city || null,
+      prefecture,
+      city: resolvedCity || null,
       address,
     };
   }

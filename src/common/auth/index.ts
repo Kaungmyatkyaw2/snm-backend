@@ -1,8 +1,10 @@
 import { expo } from '@better-auth/expo';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { admin } from 'better-auth/plugins';
+import { admin, emailOTP } from 'better-auth/plugins';
 import { PrismaClient } from '../../../generated/prisma/client';
+import { sendEmail } from '../email';
+import { buildOtpEmailTemplate } from '../email/template';
 import { ac, adminRole, userRole } from './permissions';
 
 const prisma = new PrismaClient();
@@ -25,7 +27,10 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
+  },
+  emailVerification: {
+    autoSignInAfterVerification: true,
   },
   socialProviders: {
     google: {
@@ -43,6 +48,32 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    emailOTP({
+      sendVerificationOnSignUp: true,
+      overrideDefaultEmailVerification: true,
+
+      async sendVerificationOTP({ email, otp, type }) {
+        console.log('I am here sendVerificationOTP');
+        const subjectByType: Record<string, string> = {
+          'sign-in': 'Your Shwe Nyar Myay sign-in code',
+          'email-verification': 'Verify your Shwe Nyar Myay email',
+          'password-reset': 'Reset your Shwe Nyar Myay password',
+        };
+
+        const subject =
+          subjectByType[type] ?? 'Your Shwe Nyar Myay verification code';
+        const html = buildOtpEmailTemplate({
+          otp,
+          appUrl: process.env.APP_URL ?? '#',
+        });
+
+        await sendEmail({
+          to: email,
+          subject,
+          text: html,
+        });
+      },
+    }),
     //@ts-ignore
     expo(),
     //@ts-ignore
