@@ -14,7 +14,7 @@ export const auth = betterAuth({
   baseURL: process.env.APP_URL || 'http://localhost:3001',
   trustedOrigins: process.env.TRUSTED_ORIGINS
     ? process.env.TRUSTED_ORIGINS.split(',')
-    : ['http://localhost:3000', 'http://localhost:3001', 'mobile://'],
+    : ['http://localhost:3000', 'http://localhost:3001', 'shwe-nyar-myay://'],
   advanced: {
     disableOriginCheck: true,
   },
