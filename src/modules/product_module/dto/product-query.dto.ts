@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 
 const PRODUCT_SORT_OPTIONS = ['newest', 'price-low', 'price-high'] as const;
-const PRODUCT_SORT_BY_OPTIONS = ['createdAt', 'price'] as const;
+const PRODUCT_SORT_BY_OPTIONS = ['createdAt', 'price', 'name'] as const;
 const PRODUCT_SORT_DIR_OPTIONS = ['asc', 'desc'] as const;
 
 export class ProductQueryDto {
@@ -33,6 +33,11 @@ export class ProductQueryDto {
   @IsOptional()
   @IsString()
   category_slug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  product_slug?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -95,7 +100,7 @@ export class ProductQueryDto {
   @ApiPropertyOptional({ enum: PRODUCT_SORT_BY_OPTIONS })
   @IsOptional()
   @IsEnum(PRODUCT_SORT_BY_OPTIONS)
-  sort_by?: 'createdAt' | 'price';
+  sort_by?: 'createdAt' | 'price' | 'name';
 
   @ApiPropertyOptional({ enum: PRODUCT_SORT_DIR_OPTIONS })
   @IsOptional()

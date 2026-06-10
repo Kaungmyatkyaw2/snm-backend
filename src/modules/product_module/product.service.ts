@@ -2,10 +2,32 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from 'src/database/prisma.service';
 import { ProductQueryDto } from './dto/product-query.dto';
+import { ProductSuggestionQueryDto } from './dto/product-suggestion-query.dto';
 
 @Injectable()
 export class ProductService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getProductSuggestions(query: ProductSuggestionQueryDto) {
+    const search = query.query.trim();
+
+    return this.prisma.product.findMany({
+      where: {
+        status: 'active',
+        name: {
+          contains: search,
+          mode: 'insensitive',
+        },
+      },
+      orderBy: [{ name: 'asc' }],
+      take: query.limit,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+  }
 
   async getProducts(query: ProductQueryDto) {
     const page = query.page || 1;
@@ -17,8 +39,12 @@ export class ProductService {
       ...(query.min_price !== undefined || query.max_price !== undefined
         ? {
             price: {
-              ...(query.min_price !== undefined ? { gte: query.min_price } : {}),
-              ...(query.max_price !== undefined ? { lte: query.max_price } : {}),
+              ...(query.min_price !== undefined
+                ? { gte: query.min_price }
+                : {}),
+              ...(query.max_price !== undefined
+                ? { lte: query.max_price }
+                : {}),
             },
           }
         : {}),
@@ -41,6 +67,7 @@ export class ProductService {
 
     const where: Prisma.ProductWhereInput = {
       status: 'active',
+      ...(query.product_slug ? { slug: query.product_slug } : {}),
       ...(query.search
         ? {
             name: {
@@ -73,7 +100,9 @@ export class ProductService {
             },
           }
         : {}),
-      ...(query.in_stock || query.min_price !== undefined || query.max_price !== undefined
+      ...(query.in_stock ||
+      query.min_price !== undefined ||
+      query.max_price !== undefined
         ? {
             variants: {
               some: variantFilter,
@@ -85,7 +114,9 @@ export class ProductService {
     const [rawProducts, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        orderBy: isPriceSort ? [{ createdAt: 'desc' }] : [{ [normalizedSortBy]: normalizedSortDir }],
+        orderBy: isPriceSort
+          ? [{ createdAt: 'desc' }]
+          : [{ [normalizedSortBy]: normalizedSortDir }],
         skip: isPriceSort ? 0 : skip,
         take: isPriceSort ? undefined : limit,
         select: {
